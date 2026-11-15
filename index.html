@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Multi Piano Phase - Rests, Preview & Sync Modes</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --panel: #111827;
+            --a-color: #38bdf8;
+            --b-color: #f472b6;
+            --accent: #34d399;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --border: #334155;
+        }
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 760px;
+        }
+        h1 {
+            font-size: 1.4rem;
+            text-align: center;
+            margin: 0 0 4px 0;
+            background: linear-gradient(90deg, var(--a-color), var(--b-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-bottom: 16px;
+        }
+        .card {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+
+        .bank-panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .bank-label { font-size: 0.8rem; font-weight: bold; color: var(--muted); }
+        .bank-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+        .bank-btn {
+            background: #334155; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: all 0.15s;
+        }
+        .bank-btn.active { background: var(--accent); color: #0f172a; border-color: var(--accent); }
+        .bank-btn.save-slot { background: rgba(56, 189, 248, 0.15); border-color: var(--a-color); color: var(--a-color); }
+
+        .monitor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .piano-box { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+        .piano-box.set-a { border-top: 3px solid var(--a-color); }
+        .piano-box.set-b { border-top: 3px solid var(--b-color); }
+        .piano-label { font-size: 0.8rem; font-weight: bold; margin-bottom: 6px; }
+        .set-a .piano-label { color: var(--a-color); }
+        .set-b .piano-label { color: var(--b-color); }
+        .step-num-display { font-size: 1.5rem; font-weight: bold; font-variant-numeric: tabular-nums; }
+        .note-name-display { font-size: 0.8rem; color: var(--muted); height: 1.2em; }
+
+        .drift-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .drift-subbox { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+        .drift-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+        .drift-bar-bg { width: 100%; height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden; }
+        .drift-bar-fill { height: 100%; width: 0%; transition: width 0.05s linear; }
+        .fill-a { background: var(--a-color); }
+        .fill-b { background: var(--b-color); }
+
+        .master-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .btn { border: none; border-radius: 10px; padding: 12px; font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: transform 0.08s, background 0.15s; }
+        .btn:active { transform: scale(0.98); }
+        .btn-all-play { background: var(--accent); color: #0f172a; }
+        .btn-all-stop { background: #ef4444; color: #fff; }
+
+        .transport-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+        .transport-box { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .transport-box-title { font-size: 0.8rem; font-weight: bold; color: var(--muted); text-align: center; }
+        .tr-btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .btn-play-a { background: var(--a-color); color: #0f172a; }
+        .btn-play-b { background: var(--b-color); color: #0f172a; }
+        .btn-stop-sub { background: #334155; color: var(--text); }
+        .btn-play-a.playing { background: #ef4444; color: #fff; }
+        .btn-play-b.playing { background: #ef4444; color: #fff; }
+
+        .sync-mode-row {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+        .sync-mode-row select { font-size: 0.75rem; padding: 2px 4px; }
+
+        .phase-btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+        .btn-phase { background: #334155; color: var(--text); border: 2px solid var(--muted); font-size: 0.85rem; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .btn-phase.active-a { border-color: var(--a-color); background: rgba(56, 189, 248, 0.2); color: var(--a-color); }
+        .btn-phase.active-b { border-color: var(--b-color); background: rgba(244, 114, 182, 0.2); color: var(--b-color); }
+
+        .sliders-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .slider-box { background: var(--panel); padding: 10px; border-radius: 10px; border: 1px solid var(--border); }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+        .slider-label strong { color: var(--text); }
+        input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+        .pedals-row { display: grid; grid-template-columns: 1fr 1fr 0.8fr; gap: 10px; }
+        .pedal-btn { background: var(--panel); color: var(--muted); border: 1px solid var(--border); border-radius: 10px; padding: 10px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
+        .pedal-btn.on { background: rgba(56, 189, 248, 0.18); border-color: var(--a-color); color: var(--a-color); }
+        .btn-reset { background: var(--panel); color: var(--muted); border: 1px solid var(--border); border-radius: 10px; padding: 10px; font-size: 0.8rem; cursor: pointer; }
+
+        .scale-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+        .scale-group { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; }
+        select { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 0.85rem; }
+
+        .seq-card { border-left: 4px solid var(--a-color); }
+        .seq-card.set-b-card { border-left: 4px solid var(--b-color); }
+        .seq-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+        .seq-title { font-size: 0.95rem; font-weight: bold; }
+        .seq-controls-right { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; }
+        
+        .isolate-btn { background: #334155; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-weight: bold; cursor: pointer; font-size: 0.75rem; }
+        .isolate-btn.active { background: rgba(244, 114, 182, 0.2); border-color: var(--b-color); color: var(--b-color); }
+
+        .steps-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+        @media (max-width: 480px) {
+            .steps-grid { grid-template-columns: repeat(4, 1fr); }
+            .sliders-grid { grid-template-columns: 1fr; }
+        }
+        .step-cell { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .step-cell.active-l { border-color: var(--a-color); box-shadow: inset 0 0 8px rgba(56, 189, 248, 0.3); }
+        .step-cell.active-r { border-color: var(--b-color); box-shadow: inset 0 0 8px rgba(244, 114, 182, 0.3); }
+        .step-idx { font-size: 0.65rem; color: var(--muted); }
+        .step-note-select { width: 100%; text-align: center; font-weight: bold; padding: 4px 2px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Multi Piano Phase</h1>
+    <p class="subtitle">休符・プレビュー試聴 ＆ 同期モード搭載版</p>
+
+    <!-- バンク切替パネル -->
+    <div class="bank-panel">
+        <div class="bank-label">📦 フレーズ・バンク:</div>
+        <div class="bank-buttons">
+            <button class="bank-btn active" id="btnBankA">バンク A (原曲)</button>
+            <button class="bank-btn" id="btnBankB">バンク B (空き)</button>
+            <button class="bank-btn" id="btnBankC">バンク C (空き)</button>
+            <button class="bank-btn save-slot" id="btnSaveBank">💾 現在の状態を保存</button>
+        </div>
+    </div>
+
+    <!-- ① モニター ＆ 位相ズレゲージ -->
+    <div class="card">
+        <div class="monitor-grid">
+            <div class="piano-box set-a">
+                <div class="piano-label">🎹 セットA (L1 / R1)</div>
+                <div class="step-num-display" id="dispStepA">L:- / R:-</div>
+                <div class="note-name-display" id="dispNoteA">Stopped</div>
+            </div>
+            <div class="piano-box set-b">
+                <div class="piano-label">🎹 セットB (L2 / R2)</div>
+                <div class="step-num-display" id="dispStepB">L:- / R:-</div>
+                <div class="note-name-display" id="dispNoteB">Stopped</div>
+            </div>
+        </div>
+
+        <div class="drift-panel">
+            <div class="drift-subbox">
+                <div class="drift-header"><span>セットA 位相ズレ</span><strong id="driftTextA" style="color: var(--text);">0.00 steps</strong></div>
+                <div class="drift-bar-bg"><div class="drift-bar-fill fill-a" id="driftBarA"></div></div>
+            </div>
+            <div class="drift-subbox">
+                <div class="drift-header"><span>セットB 位相ズレ</span><strong id="driftTextB" style="color: var(--text);">0.00 steps</strong></div>
+                <div class="drift-bar-bg"><div class="drift-bar-fill fill-b" id="driftBarB"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ② トランスポート -->
+    <div class="card">
+        <div class="master-controls">
+            <button class="btn btn-all-play" id="btnAllPlay">▶ 両方同時に再生</button>
+            <button class="btn btn-all-stop" id="btnAllStop">⏹ 両方停止</button>
+        </div>
+
+        <div class="transport-split">
+            <div class="transport-box">
+                <div class="transport-box-title">セットA コントロール</div>
+                <div class="tr-btn-row">
+                    <button class="btn btn-play-a" id="btnPlayA">▶ 再生</button>
+                    <button class="btn btn-stop-sub" id="btnStopA">⏹ 停止</button>
+                </div>
+            </div>
+            <div class="transport-box">
+                <div class="transport-box-title">セットB コントロール</div>
+                <div class="tr-btn-row">
+                    <button class="btn btn-play-b" id="btnPlayB">▶ 再生</button>
+                    <button class="btn btn-stop-sub" id="btnStopB">⏹ 停止</button>
+                </div>
+                <div class="sync-mode-row">
+                    <span>起動モード:</span>
+                    <select id="syncModeSelect">
+                        <option value="sync">シンクロ (頭合わせ)</option>
+                        <option value="quantize" selected>クオンタイズ (小節頭合流)</option>
+                        <option value="free">補正なし (即座発音)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="phase-btn-row">
+            <button class="btn-phase" id="btnPhaseA">⚡ セットA PHASE: OFF</button>
+            <button class="btn-phase" id="btnPhaseB">⚡ セットB PHASE: OFF</button>
+        </div>
+
+        <div class="sliders-grid">
+            <div class="slider-box">
+                <div class="slider-label"><span>全体テンポ</span><strong id="bpmVal">132 BPM</strong></div>
+                <input type="range" id="bpmSlider" min="60" max="200" value="132">
+            </div>
+            <div class="slider-box">
+                <div class="slider-label"><span>セットA 加速率</span><strong id="rateAVal">+0.8%</strong></div>
+                <input type="range" id="rateASlider" min="0.1" max="5.0" step="0.1" value="0.8">
+            </div>
+            <div class="slider-box">
+                <div class="slider-label"><span>セットB 加速率</span><strong id="rateBVal">+1.2%</strong></div>
+                <input type="range" id="rateBSlider" min="0.1" max="5.0" step="0.1" value="1.2">
+            </div>
+        </div>
+
+        <div class="pedals-row">
+            <button class="pedal-btn" id="btnDamper">🦶 ダンパー: OFF</button>
+            <button class="pedal-btn" id="btnSoft">🎹 ソフト: OFF</button>
+            <button class="btn-reset" id="btnResetPhase">↺ 位相リセット</button>
+        </div>
+    </div>
+
+    <!-- ③ スケール設定パネル -->
+    <div class="scale-panel">
+        <div class="scale-group">
+            <label for="rootSelect">ルート音:</label>
+            <select id="rootSelect">
+                <option value="C">C</option><option value="C#">C#</option><option value="D">D</option>
+                <option value="D#">D#</option><option value="E" selected>E</option><option value="F">F</option>
+                <option value="F#">F#</option><option value="G">G</option><option value="G#">G#</option><option value="A">A</option><option value="A#">A#</option><option value="B">B</option>
+            </select>
+        </div>
+        <div class="scale-group">
+            <label for="scaleSelect">スケール:</label>
+            <select id="scaleSelect">
+                <option value="chromatic">クロマチック (全音階)</option>
+                <option value="major">メジャー</option>
+                <option value="natural_minor">ナチュラル・マイナー</option>
+                <option value="dorian" selected>ドリアン (原曲風)</option>
+                <option value="pentatonic">ペンタトニック</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- ④ セットA シーケンサー -->
+    <div class="card seq-card">
+        <div class="seq-header">
+            <div class="seq-title" style="color: var(--a-color);">🎼 セットA シーケンサー</div>
+            <div class="seq-controls-right">
+                <label for="stepsASelect">ステップ:</label>
+                <select id="stepsASelect">
+                    <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+                    <option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12" selected>12</option>
+                </select>
+            </div>
+        </div>
+        <div class="steps-grid" id="gridA"></div>
+    </div>
+
+    <!-- ⑤ セットB シーケンサー -->
+    <div class="card seq-card set-b-card">
+        <div class="seq-header">
+            <div class="seq-title" style="color: var(--b-color);">🎼 セットB シーケンサー (ポリリズム)</div>
+            <div class="seq-controls-right">
+                <button class="isolate-btn" id="btnIsolate">ISOLATE: OFF (Aに追従)</button>
+                <label for="stepsBSelect">ステップ:</label>
+                <select id="stepsBSelect">
+                    <option value="5">5</option><option value="6">6</option><option value="7" selected>7</option><option value="8">8</option>
+                    <option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
+                </select>
+            </div>
+        </div>
+        <div class="steps-grid" id="gridB"></div>
+    </div>
+</div>
+
+<script>
+    const ALL_NOTES = [
+        { name: 'Rest', midi: 0, freq: 0 },
+        { name: 'C4', midi: 60, freq: 261.63 }, { name: 'C#4', midi: 61, freq: 277.18 },
+        { name: 'D4', midi: 62, freq: 293.66 }, { name: 'D#4', midi: 63, freq: 311.13 },
+        { name: 'E4', midi: 64, freq: 329.63 }, { name: 'F4', midi: 65, freq: 349.23 },
+        { name: 'F#4', midi: 66, freq: 369.99 }, { name: 'G4', midi: 67, freq: 392.00 },
+        { name: 'G#4', midi: 68, freq: 415.30 }, { name: 'A4', midi: 69, freq: 440.00 },
+        { name: 'A#4', midi: 70, freq: 466.16 }, { name: 'B4', midi: 71, freq: 493.88 },
+        { name: 'C5', midi: 72, freq: 523.25 }, { name: 'C#5', midi: 73, freq: 554.37 },
+        { name: 'D5', midi: 74, freq: 587.33 }, { name: 'D#5', midi: 75, freq: 622.25 },
+        { name: 'E5', midi: 76, freq: 659.25 }, { name: 'F5', midi: 77, freq: 698.46 },
+        { name: 'F#5', midi: 78, freq: 739.99 }, { name: 'G5', midi: 79, freq: 783.99 }
+    ];
+
+    const NOTE_NAMES_MAP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const SCALE_INTERVALS = {
+        chromatic: [0,1,2,3,4,5,6,7,8,9,10,11],
+        major: [0, 2, 4, 5, 7, 9, 11],
+        natural_minor: [0, 2, 3, 5, 7, 8, 10],
+        dorian: [0, 2, 3, 5, 7, 9, 10],
+        pentatonic: [0, 2, 7, 9, 11]
+    };
+
+    let currentRoot = 'E';
+    let currentScale = 'dorian';
+    let isIsolateB = false;
+    let syncMode = 'quantize'; // 'sync', 'quantize', 'free'
+
+    let baseMidiA = [64, 66, 71, 73, 74, 66, 64, 73, 71, 66, 74, 73];
+    let baseMidiB = [71, 73, 64, 66, 74, 71, 73];
+
+    let seqA = ['E4', 'F#4', 'B4', 'C#5', 'D5', 'F#4', 'E4', 'C#5', 'B4', 'F#4', 'D5', 'C#5'];
+    let seqB = ['B4', 'C#5', 'E4', 'F#4', 'D5', 'B4', 'C#5'];
+    let numStepsA = 12;
+    let numStepsB = 7;
+
+    let banks = {
+        A: {
+            root: 'E', scale: 'dorian', isIsolate: false,
+            stepsA: 12, stepsB: 7,
+            baseA: [64, 66, 71, 73, 74, 66, 64, 73, 71, 66, 74, 73],
+            baseB: [71, 73, 64, 66, 74, 71, 73],
+            seqB: ['B4', 'C#5', 'E4', 'F#4', 'D5', 'B4', 'C#5']
+        },
+        B: null, C: null
+    };
+    let currentBankId = 'A';
+
+    function getAvailableNotes() {
+        const restObj = ALL_NOTES[0]; // Rest
+        if (currentScale === 'chromatic') return ALL_NOTES;
+        const rootIndex = NOTE_NAMES_MAP.indexOf(currentRoot);
+        const intervals = SCALE_INTERVALS[currentScale];
+        const filtered = ALL_NOTES.slice(1).filter(n => {
+            const pitchClass = (n.midi - 60 - rootIndex + 24) % 12;
+            return intervals.includes(pitchClass);
+        });
+        return [restObj, ...filtered];
+    }
+
+    function resolveNotesFromBase() {
+        const notes = getAvailableNotes();
+        const nonRestNotes = notes.filter(n => n.midi > 0);
+
+        seqA = baseMidiA.slice(0, numStepsA).map(midi => {
+            if (midi === 0) return 'Rest';
+            const found = nonRestNotes.reduce((prev, curr) => Math.abs(curr.midi - midi) < Math.abs(prev.midi - midi) ? curr : prev, nonRestNotes[0]);
+            return found ? found.name : 'E4';
+        });
+
+        seqB = baseMidiB.slice(0, numStepsB).map(midi => {
+            if (midi === 0) return 'Rest';
+            const found = nonRestNotes.reduce((prev, curr) => Math.abs(curr.midi - midi) < Math.abs(prev.midi - midi) ? curr : prev, nonRestNotes[0]);
+            return found ? found.name : 'B4';
+        });
+    }
+
+    let audioCtx = null;
+    let masterBus = null;
+    let isPlayingA = false, isPlayingB = false;
+    let isPhasingA = false, isPhasingB = false;
+    let damperOn = false, softOn = false;
+    let baseBpm = 132, rateA = 0.8, rateB = 1.2;
+
+    let timerID = null;
+    let nextTimeL1 = 0, nextTimeR1 = 0, nextTimeL2 = 0, nextTimeR2 = 0;
+    let stepIndexL1 = 0, stepIndexR1 = 0, stepIndexL2 = 0, stepIndexR2 = 0;
+    let totalStepsL1 = 0, totalStepsR1 = 0, totalStepsL2 = 0, totalStepsR2 = 0;
+
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const convolver = audioCtx.createConvolver();
+            convolver.buffer = createReverbIR(audioCtx, 4.5, 2.6);
+            const revFilter = audioCtx.createBiquadFilter();
+            revFilter.type = 'lowpass'; revFilter.frequency.value = 3400;
+
+            const dryGain = audioCtx.createGain(); dryGain.gain.value = 0.7;
+            const wetGain = audioCtx.createGain(); wetGain.gain.value = 0.5;
+            const comp = audioCtx.createDynamicsCompressor();
+            comp.threshold.value = -12; comp.ratio.value = 4;
+
+            const inputNode = audioCtx.createGain();
+            inputNode.connect(dryGain); dryGain.connect(comp);
+            inputNode.connect(convolver); convolver.connect(revFilter); revFilter.connect(wetGain); wetGain.connect(comp);
+            comp.connect(audioCtx.destination);
+            masterBus = inputNode;
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function createReverbIR(ctx, duration = 4.5, decay = 2.6) {
+        const rate = ctx.sampleRate;
+        const len = Math.floor(rate * duration);
+        const buf = ctx.createBuffer(2, len, rate);
+        for (let ch = 0; ch < 2; ch++) {
+            const data = buf.getChannelData(ch);
+            for (let i = 0; i < len; i++) {
+                const t = i / rate;
+                data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay) * Math.min(1, t / 0.025);
+            }
+        }
+        return buf;
+    }
+
+    function triggerPianoNote(freq, time, panValue) {
+        if (!freq || freq <= 0) return;
+        const baseGain = softOn ? 0.08 : 0.14;
+        const cutoffFreq = softOn ? 1000 : 3600;
+        const decayTime = damperOn ? 2.5 : 0.5;
+
+        const panner = audioCtx.createStereoPanner();
+        panner.pan.setValueAtTime(panValue, time);
+        panner.connect(masterBus);
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(cutoffFreq, time);
+        filter.frequency.exponentialRampToValueAtTime(Math.max(400, cutoffFreq * 0.35), time + decayTime);
+        filter.connect(panner);
+
+        const osc = audioCtx.createOscillator();
+        const env = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, time);
+
+        env.gain.setValueAtTime(0.0001, time);
+        env.gain.linearRampToValueAtTime(baseGain, time + 0.005);
+        env.gain.exponentialRampToValueAtTime(0.0001, time + decayTime);
+
+        osc.connect(env); env.connect(filter);
+        osc.start(time); osc.stop(time + decayTime + 0.05);
+    }
+
+    // セレクト変更時のプレビュー試聴関数
+    function previewNote(noteName) {
+        if (noteName === 'Rest') return;
+        initAudio();
+        const found = ALL_NOTES.find(n => n.name === noteName);
+        if (found && found.freq > 0) {
+            triggerPianoNote(found.freq, audioCtx.currentTime, 0.0);
+        }
+    }
+
+    function getStepDuration() { return (60.0 / baseBpm) / 4.0; }
+    function getDurR1() { const d = getStepDuration(); return isPhasingA ? d / (1.0 + rateA / 100.0) : d; }
+    function getDurR2() { const d = getStepDuration(); return isPhasingB ? d / (1.0 + rateB / 100.0) : d; }
+
+    function getFreqForNote(noteName) {
+        const found = ALL_NOTES.find(n => n.name === noteName);
+        return found ? found.freq : 0;
+    }
+
+    function getNoteB(idx) {
+        if (isIsolateB) {
+            return seqB[idx % numStepsB];
+        } else {
+            return seqA[idx % numStepsA];
+        }
+    }
+
+    function scheduler() {
+        if (!isPlayingA && !isPlayingB) return;
+        const lookahead = 0.1;
+        const dur = getStepDuration();
+
+        if (isPlayingA) {
+            while (nextTimeL1 < audioCtx.currentTime + lookahead) {
+                const idx = stepIndexL1 % numStepsA;
+                const freq = getFreqForNote(seqA[idx]);
+                if (freq > 0) triggerPianoNote(freq, nextTimeL1, -0.7);
+
+                const delayMs = Math.max(0, (nextTimeL1 - audioCtx.currentTime) * 1000);
+                const cIdx = idx, cName = seqA[idx];
+                setTimeout(() => { if (isPlayingA) updateVisual('A', 'L', cIdx, cName); }, delayMs);
+
+                nextTimeL1 += dur; stepIndexL1++; totalStepsL1++;
+            }
+            while (nextTimeR1 < audioCtx.currentTime + lookahead) {
+                const idx = stepIndexR1 % numStepsA;
+                const freq = getFreqForNote(seqA[idx]);
+                if (freq > 0) triggerPianoNote(freq, nextTimeR1, 0.7);
+
+                const delayMs = Math.max(0, (nextTimeR1 - audioCtx.currentTime) * 1000);
+                const cIdx = idx, cName = seqA[idx];
+                setTimeout(() => { if (isPlayingA) updateVisual('A', 'R', cIdx, cName); }, delayMs);
+
+                nextTimeR1 += getDurR1(); stepIndexR1++; totalStepsR1++;
+            }
+        }
+
+        if (isPlayingB) {
+            while (nextTimeL2 < audioCtx.currentTime + lookahead) {
+                const idx = stepIndexL2 % numStepsB;
+                const noteName = getNoteB(idx);
+                const freq = getFreqForNote(noteName);
+                if (freq > 0) triggerPianoNote(freq, nextTimeL2, -0.3);
+
+                const delayMs = Math.max(0, (nextTimeL2 - audioCtx.currentTime) * 1000);
+                const cIdx = idx, cName = noteName;
+                setTimeout(() => { if (isPlayingB) updateVisual('B', 'L', cIdx, cName); }, delayMs);
+
+                nextTimeL2 += dur; stepIndexL2++; totalStepsL2++;
+            }
+            while (nextTimeR2 < audioCtx.currentTime + lookahead) {
+                const idx = stepIndexR2 % numStepsB;
+                const noteName = getNoteB(idx);
+                const freq = getFreqForNote(noteName);
+                if (freq > 0) triggerPianoNote(freq, nextTimeR2, 0.3);
+
+                const delayMs = Math.max(0, (nextTimeR2 - audioCtx.currentTime) * 1000);
+                const cIdx = idx, cName = noteName;
+                setTimeout(() => { if (isPlayingB) updateVisual('B', 'R', cIdx, cName); }, delayMs);
+
+                nextTimeR2 += getDurR2(); stepIndexR2++; totalStepsR2++;
+            }
+        }
+
+        updateDriftMonitors();
+        timerID = setTimeout(scheduler, 25);
+    }
+
+    let activeL1 = -1, activeR1 = -1, activeL2 = -1, activeR2 = -1;
+    function updateVisual(set, side, idx, name) {
+        if (set === 'A') {
+            if (side === 'L') activeL1 = idx; else activeR1 = idx;
+            document.getElementById('dispStepA').textContent = `L:${activeL1+1} / R:${activeR1+1}`;
+            document.getElementById('dispNoteA').textContent = name;
+        } else {
+            if (side === 'L') activeL2 = idx; else activeR2 = idx;
+            document.getElementById('dispStepB').textContent = `L:${activeL2+1} / R:${activeR2+1}`;
+            document.getElementById('dispNoteB').textContent = name;
+        }
+
+        document.querySelectorAll(`#gridA .step-cell`).forEach((c, i) => {
+            c.classList.toggle('active-l', i === activeL1);
+            c.classList.toggle('active-r', i === activeR1);
+        });
+        document.querySelectorAll(`#gridB .step-cell`).forEach((c, i) => {
+            c.classList.toggle('active-l', i === activeL2);
+            c.classList.toggle('active-r', i === activeR2);
+        });
+    }
+
+    function updateDriftMonitors() {
+        if (!audioCtx) return;
+        const dur = getStepDuration();
+        
+        if (isPlayingA) {
+            const fracL1 = totalStepsL1 - Math.max(0, (nextTimeL1 - audioCtx.currentTime) / dur);
+            const fracR1 = totalStepsR1 - Math.max(0, (nextTimeR1 - audioCtx.currentTime) / getDurR1());
+            let diffA = (fracR1 - fracL1) % numStepsA; if (diffA < 0) diffA += numStepsA;
+            document.getElementById('driftBarA').style.width = `${(diffA / numStepsA) * 100}%`;
+            document.getElementById('driftTextA').textContent = `${diffA.toFixed(2)} / ${numStepsA} steps`;
+        }
+
+        if (isPlayingB) {
+            const fracL2 = totalStepsL2 - Math.max(0, (nextTimeL2 - audioCtx.currentTime) / dur);
+            const fracR2 = totalStepsR2 - Math.max(0, (nextTimeR2 - audioCtx.currentTime) / getDurR2());
+            let diffB = (fracR2 - fracL2) % numStepsB; if (diffB < 0) diffB += numStepsB;
+            document.getElementById('driftBarB').style.width = `${(diffB / numStepsB) * 100}%`;
+            document.getElementById('driftTextB').textContent = `${diffB.toFixed(2)} / ${numStepsB} steps`;
+        }
+    }
+
+    function renderGrids() {
+        resolveNotesFromBase();
+        const notes = getAvailableNotes();
+
+        const gridA = document.getElementById('gridA');
+        gridA.innerHTML = '';
+        for (let i = 0; i < numStepsA; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'step-cell';
+            cell.innerHTML = `<div class="step-idx">STEP ${i+1}</div>`;
+
+            const select = document.createElement('select');
+            select.className = 'step-note-select';
+            notes.forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n.name; opt.textContent = n.name;
+                if (seqA[i] === n.name) opt.selected = true;
+                select.appendChild(opt);
+            });
+            select.addEventListener('change', (e) => {
+                seqA[i] = e.target.value;
+                const found = ALL_NOTES.find(n => n.name === e.target.value);
+                baseMidiA[i] = found ? found.midi : 0;
+                previewNote(e.target.value);
+            });
+            cell.appendChild(select);
+            gridA.appendChild(cell);
+        }
+
+        const gridB = document.getElementById('gridB');
+        gridB.innerHTML = '';
+        for (let i = 0; i < numStepsB; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'step-cell';
+            cell.innerHTML = `<div class="step-idx">STEP ${i+1}</div>`;
+
+            const select = document.createElement('select');
+            select.className = 'step-note-select';
+            notes.forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n.name; opt.textContent = n.name;
+                const currentNote = isIsolateB ? seqB[i] : seqA[i % numStepsA];
+                if (currentNote === n.name) opt.selected = true;
+                select.appendChild(opt);
+            });
+            select.addEventListener('change', (e) => {
+                if (!isIsolateB) {
+                    isIsolateB = true;
+                    const isoBtn = document.getElementById('btnIsolate');
+                    isoBtn.classList.add('active');
+                    isoBtn.textContent = 'ISOLATE: ON (独立モード)';
+                }
+                seqB[i] = e.target.value;
+                const found = ALL_NOTES.find(n => n.name === e.target.value);
+                baseMidiB[i] = found ? found.midi : 0;
+                previewNote(e.target.value);
+            });
+            cell.appendChild(select);
+            gridB.appendChild(cell);
+        }
+    }
+
+    function startA() {
+        initAudio();
+        if (!isPlayingA) {
+            isPlayingA = true;
+            document.getElementById('btnPlayA').classList.add('playing');
+            const now = audioCtx.currentTime + 0.05;
+            nextTimeL1 = now; nextTimeR1 = now; stepIndexL1 = 0; stepIndexR1 = 0; totalStepsL1 = 0; totalStepsR1 = 0;
+            if (!isPlayingB) scheduler();
+        }
+    }
+    function stopA() {
+        isPlayingA = false;
+        document.getElementById('btnPlayA').classList.remove('playing');
+        activeL1 = -1; activeR1 = -1;
+        document.getElementById('dispStepA').textContent = 'L:- / R:-';
+        document.getElementById('dispNoteA').textContent = 'Stopped';
+    }
+
+    function startB() {
+        initAudio();
+        if (!isPlayingB) {
+            isPlayingB = true;
+            document.getElementById('btnPlayB').classList.add('playing');
+            const dur = getStepDuration();
+            let startTargetTime = audioCtx.currentTime + 0.05;
+
+            if (isPlayingA) {
+                if (syncMode === 'sync') {
+                    // 同期モード (Sync): Aの現在のサイクルにおける「次のSTEP1（頭）」に完全一致させる
+                    const timeSinceCycleStart = (audioCtx.currentTime - (nextTimeL1 - dur)) % (dur * numStepsA);
+                    const timeToNextCycleStart = (dur * numStepsA) - timeSinceCycleStart;
+                    startTargetTime = audioCtx.currentTime + timeToNextCycleStart;
+                } else if (syncMode === 'quantize') {
+                    // クオンタイズモード (Quantize): Aの次のグリッド（小節頭）に合流
+                    const timeSinceLastL1 = (audioCtx.currentTime - (nextTimeL1 - dur));
+                    const timeToNextBar = dur - (timeSinceLastL1 % dur);
+                    startTargetTime = audioCtx.currentTime + timeToNextBar;
+                }
+                // 'free' の場合は補正なしで即座にスタート
+            }
+
+            nextTimeL2 = startTargetTime; 
+            nextTimeR2 = startTargetTime; 
+            stepIndexL2 = 0; 
+            stepIndexR2 = 0; 
+            totalStepsL2 = 0; 
+            totalStepsR2 = 0;
+
+            if (!isPlayingA) scheduler();
+        }
+    }
+
+    function stopB() {
+        isPlayingB = false;
+        document.getElementById('btnPlayB').classList.remove('playing');
+        activeL2 = -1; activeR2 = -1;
+        document.getElementById('dispStepB').textContent = 'L:- / R:-';
+        document.getElementById('dispNoteB').textContent = 'Stopped';
+    }
+
+    function loadBank(bankId) {
+        currentBankId = bankId;
+        ['A', 'B', 'C'].forEach(id => {
+            const btn = document.getElementById(`btnBank${id}`);
+            if (id === bankId) btn.classList.add('active'); else btn.classList.remove('active');
+        });
+
+        if (bankId === 'A') {
+            currentRoot = 'E'; currentScale = 'dorian'; isIsolateB = false;
+            numStepsA = 12; numStepsB = 7;
+            baseMidiA = [64, 66, 71, 73, 74, 66, 64, 73, 71, 66, 74, 73];
+            baseMidiB = [71, 73, 64, 66, 74, 71, 73];
+            seqB = ['B4', 'C#5', 'E4', 'F#4', 'D5', 'B4', 'C#5'];
+        } else {
+            const data = banks[bankId];
+            if (!data) return;
+            currentRoot = data.root; currentScale = data.scale; isIsolateB = data.isIsolate;
+            numStepsA = data.stepsA; numStepsB = data.stepsB;
+            baseMidiA = [...data.baseA];
+            baseMidiB = [...data.baseB];
+            seqB = [...data.seqB];
+        }
+
+        document.getElementById('rootSelect').value = currentRoot;
+        document.getElementById('scaleSelect').value = currentScale;
+        document.getElementById('stepsASelect').value = numStepsA;
+        document.getElementById('stepsBSelect').value = numStepsB;
+
+        const isoBtn = document.getElementById('btnIsolate');
+        if (isIsolateB) {
+            isoBtn.classList.add('active'); isoBtn.textContent = 'ISOLATE: ON (独立モード)';
+        } else {
+            isoBtn.classList.remove('active'); isoBtn.textContent = 'ISOLATE: OFF (Aに追従)';
+        }
+
+        renderGrids();
+    }
+
+    function saveCurrentBank(bankId) {
+        banks[bankId] = {
+            root: currentRoot, scale: currentScale, isIsolate: isIsolateB,
+            stepsA: numStepsA, stepsB: numStepsB,
+            baseA: [...baseMidiA], baseB: [...baseMidiB], seqB: [...seqB]
+        };
+        document.getElementById(`btnBank${bankId}`).textContent = `バンク ${bankId} (保存済み)`;
+        alert(`バンク ${bankId} に現在のフレーズを保存しました！`);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        renderGrids();
+
+        document.getElementById('btnBankA').addEventListener('click', () => loadBank('A'));
+        document.getElementById('btnBankB').addEventListener('click', () => { if (!banks.B) saveCurrentBank('B'); loadBank('B'); });
+        document.getElementById('btnBankC').addEventListener('click', () => { if (!banks.C) saveCurrentBank('C'); loadBank('C'); });
+        document.getElementById('btnSaveBank').addEventListener('click', () => {
+            if (currentBankId === 'A') { alert('バンクA（原曲）は上書き保存できません。'); return; }
+            saveCurrentBank(currentBankId);
+        });
+
+        document.getElementById('btnAllPlay').addEventListener('click', () => { startA(); startB(); });
+        document.getElementById('btnAllStop').addEventListener('click', () => { stopA(); stopB(); if(timerID) clearTimeout(timerID); });
+        
+        document.getElementById('btnPlayA').addEventListener('click', () => { if(isPlayingA) stopA(); else startA(); });
+        document.getElementById('btnStopA').addEventListener('click', stopA);
+        
+        document.getElementById('btnPlayB').addEventListener('click', () => { if(isPlayingB) stopB(); else startB(); });
+        document.getElementById('btnStopB').addEventListener('click', stopB);
+
+        document.getElementById('syncModeSelect').addEventListener('change', (e) => {
+            syncMode = e.target.value;
+        });
+
+        document.getElementById('btnPhaseA').addEventListener('click', (e) => {
+            isPhasingA = !isPhasingA;
+            e.target.classList.toggle('active-a', isPhasingA);
+            e.target.textContent = isPhasingA ? `⚡ セットA PHASE: ON (+${rateA}%)` : '⚡ セットA PHASE: OFF';
+        });
+        document.getElementById('btnPhaseB').addEventListener('click', (e) => {
+            isPhasingB = !isPhasingB;
+            e.target.classList.toggle('active-b', isPhasingB);
+            e.target.textContent = isPhasingB ? `⚡ セットB PHASE: ON (+${rateB}%)` : '⚡ セットB PHASE: OFF';
+        });
+
+        document.getElementById('btnResetPhase').addEventListener('click', () => {
+            isPhasingA = false; isPhasingB = false;
+            document.getElementById('btnPhaseA').className = 'btn-phase'; document.getElementById('btnPhaseA').textContent = '⚡ セットA PHASE: OFF';
+            document.getElementById('btnPhaseB').className = 'btn-phase'; document.getElementById('btnPhaseB').textContent = '⚡ セットB PHASE: OFF';
+            nextTimeR1 = nextTimeL1; stepIndexR1 = stepIndexL1; totalStepsR1 = totalStepsL1;
+            nextTimeR2 = nextTimeL2; stepIndexR2 = stepIndexL2; totalStepsR2 = totalStepsL2;
+        });
+
+        document.getElementById('bpmSlider').addEventListener('input', (e) => {
+            baseBpm = parseInt(e.target.value, 10);
+            document.getElementById('bpmVal').textContent = `${baseBpm} BPM`;
+        });
+        document.getElementById('rateASlider').addEventListener('input', (e) => {
+            rateA = parseFloat(e.target.value);
+            document.getElementById('rateAVal').textContent = `+${rateA.toFixed(1)}%`;
+            if (isPhasingA) document.getElementById('btnPhaseA').textContent = `⚡ セットA PHASE: ON (+${rateA}%)`;
+        });
+        document.getElementById('rateBSlider').addEventListener('input', (e) => {
+            rateB = parseFloat(e.target.value);
+            document.getElementById('rateBVal').textContent = `+${rateB.toFixed(1)}%`;
+            if (isPhasingB) document.getElementById('btnPhaseB').textContent = `⚡ セットB PHASE: ON (+${rateB}%)`;
+        });
+
+        document.getElementById('btnDamper').addEventListener('click', (e) => {
+            damperOn = !damperOn; e.target.classList.toggle('on', damperOn);
+            e.target.textContent = damperOn ? '🦶 ダンパー: ON' : '🦶 ダンパー: OFF';
+        });
+        document.getElementById('btnSoft').addEventListener('click', (e) => {
+            softOn = !softOn; e.target.classList.toggle('on', softOn);
+            e.target.textContent = softOn ? '🎹 ソフト: ON' : '🎹 ソフト: OFF';
+        });
+
+        document.getElementById('rootSelect').addEventListener('change', (e) => { currentRoot = e.target.value; renderGrids(); });
+        document.getElementById('scaleSelect').addEventListener('change', (e) => { currentScale = e.target.value; renderGrids(); });
+
+        document.getElementById('btnIsolate').addEventListener('click', (e) => {
+            if (!isIsolateB) {
+                seqB = [];
+                for (let i = 0; i < numStepsB; i++) seqB.push(seqA[i % numStepsA]);
+            }
+            isIsolateB = !isIsolateB;
+            e.target.classList.toggle('active', isIsolateB);
+            e.target.textContent = isIsolateB ? 'ISOLATE: ON (独立モード)' : 'ISOLATE: OFF (Aに追従)';
+            renderGrids();
+        });
+
+        document.getElementById('stepsASelect').addEventListener('change', (e) => {
+            numStepsA = parseInt(e.target.value, 10);
+            while (baseMidiA.length < numStepsA) baseMidiA.push(64);
+            renderGrids();
+        });
+        document.getElementById('stepsBSelect').addEventListener('change', (e) => {
+            numStepsB = parseInt(e.target.value, 10);
+            while (baseMidiB.length < numStepsB) baseMidiB.push(64);
+            while (seqB.length < numStepsB) seqB.push('E4');
+            renderGrids();
+        });
+    });
+</script>
+</body>
+</html>
